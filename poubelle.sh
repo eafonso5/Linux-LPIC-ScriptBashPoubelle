@@ -1,0 +1,97 @@
+#!/bin/bash
+
+# ==============================================================================
+# Nom du script : poubelle.sh
+# Description    : Archive des fichiers dans un dossier "trash" et propose leur suppression.
+# ==============================================================================
+
+# --- CONFIGURATION ET VARIABLES ---
+TRASH_DIR="$HOME/trash"
+DATE_STR=$(date +"%d_%m_%Y_%H_%M")
+ARCHIVE_NAME="archive_${DATE_STR}.tar.gz"
+
+# --- FONCTION D'USAGE ---
+usage() {
+    echo "Usage: $0 fichier1 [fichier2 ... fichier10]"
+    echo "Description: Compresse entre 1 et 10 fichiers dans $TRASH_DIR et demande confirmation pour suppression."
+    echo "Options: -h, --help  Affiche cette aide."
+    exit 1
+}
+
+# --- INITIALISATION (TESTS) ---
+# Crée 10 fichiers de test si nécessaire
+init_test_files() {
+    echo "[Info] Initialisation des fichiers de test (fichier1 à fichier10)..."
+    for i in {1..10}; do
+        touch "fichier$i"
+    done
+}
+
+# --- VALIDATION DES ARGUMENTS ---
+# Demande d'aide
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+    usage
+fi
+
+# Vérification du nombre d'arguments (1 à 10)
+if [[ $# -lt 1 || $# -gt 10 ]]; then
+    echo "[Erreur] Nombre d'arguments invalide ($#). Attendu: entre 1 et 10."
+    usage
+fi
+
+# Initialisation automatique pour l'exercice
+init_test_files
+
+# --- VÉRIFICATION DU RÉPERTOIRE TRASH ---
+if [[ ! -d "$TRASH_DIR" ]]; then
+    echo "[Info] Création du répertoire $TRASH_DIR..."
+    mkdir -p "$TRASH_DIR" || { echo "[Erreur] Impossible de créer $TRASH_DIR"; exit 1; }
+fi
+
+# --- VÉRIFICATION DE L'EXISTENCE DES FICHIERS ---
+VALID_FILES=()
+for file in "$@"; do
+    if [[ -f "$file" ]]; then
+        VALID_FILES+=("$file")
+    else
+        echo "[Avertissement] Le fichier '$file' n'existe pas ou n'est pas un fichier régulier. Ignoré."
+    fi
+done
+
+# Si aucun fichier valide n'a été trouvé
+if [[ ${#VALID_FILES[@]} -eq 0 ]]; then
+    echo "[Erreur] Aucun fichier valide à archiver."
+    exit 1
+fi
+
+# --- ARCHIVAGE ---
+echo "[Action] Compression des fichiers dans $TRASH_DIR/$ARCHIVE_NAME..."
+tar -czf "$TRASH_DIR/$ARCHIVE_NAME" "${VALID_FILES[@]}" 2>/dev/null
+
+if [[ $? -eq 0 ]]; then
+    echo "[Succès] Archive créée avec succès."
+else
+    echo "[Erreur] Échec lors de la création de l'archive."
+    exit 1
+fi
+
+# --- INTERACTION UTILISATEUR ---
+echo -n "Souhaitez-vous supprimer les fichiers originaux ? (y/n) : "
+read -r confirmation
+
+case "$confirmation" in
+    [yY]|[yY][eE][sS])
+        echo "[Action] Suppression des fichiers originaux..."
+        for file in "${VALID_FILES[@]}"; do
+            rm -f "$file" && echo "  - $file supprimé." || echo "  - Erreur lors de la suppression de $file."
+        done
+        ;;
+    [nN]|[nN][oO])
+        echo "[Info] Les fichiers originaux ont été conservés."
+        ;;
+    *)
+        echo "[Avertissement] Réponse non reconnue. Par mesure de sécurité, les fichiers ne seront pas supprimés."
+        ;;
+esac
+
+echo "[Fin] Opération terminée."
